@@ -51,7 +51,14 @@ pip install -r requirements.txt
 
 ## Running the Application
 
-Once all dependencies are installed, you can start the application with:
+For the first-time run, execute the following commands:
+
+```sh
+python generate_embeddings.py
+python main.py
+```
+
+For subsequent runs, you can start the application with:
 
 ```sh
 python main.py
@@ -64,3 +71,4 @@ To deactivate the virtual environment, run:
 ```sh
 deactivate
 ```
+
