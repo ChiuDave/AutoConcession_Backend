@@ -1,0 +1,9 @@
+Flask
+flask-cors
+pandas
+python-dotenv
+langchain-core
+langchain-groq
+langchain-huggingface
+langchain-community
+numpy
