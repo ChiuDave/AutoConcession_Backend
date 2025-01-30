@@ -26,13 +26,13 @@ vectorstore = FAISS.load_local("faiss_vehicle_index", embeddings, allow_dangerou
 chat = ChatGroq(
     temperature=0,
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    model_name="llama-3.2-90b-vision-preview"
+    model_name="deepseek-r1-distill-llama-70b"
 )
 
 sqlChat = ChatGroq(
     temperature=0,
     groq_api_key=os.getenv("GROQ_API_KEY"),
-    model_name="llama-3.2-90b-vision-preview",
+    model_name="deepseek-r1-distill-llama-70b",
 )
 
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
