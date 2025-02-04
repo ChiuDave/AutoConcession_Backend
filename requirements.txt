@@ -6,4 +6,5 @@ langchain-core
 langchain-groq
 langchain-huggingface
 langchain-community
+faiss-cpu
 numpy
