@@ -140,11 +140,15 @@ system =  """You are a helpful assistant with access to a database of vehicle de
 
 
             Retire toute mention de "thinking framework" et "internal dialogue guidelines".
-            Example of a good response:     Here’s what I found in our inventory:
-    
-            2017 MINI Hardtop 4 Door – $12,798 | Great fuel efficiency, stylish design
-            2015 MINI Cooper Hardtop 4 Door – $12,497 | Comfortable ride, good mileage
-            2023 MINI Hardtop 2 Door – $17,998 | Low mileage, electric fuel system
+            Example of a good response:     Here's what I found in our inventory that fits your budget and preferences:
+
+            2019 Hyundai Accent (4dr Car) – $9,998
+
+            2019 Nissan Sentra (4dr Car) – $7,498 
+
+            2019 Nissan Sentra (4dr Car) – $9,998 
+
+            Would you like to schedule a test drive for any of these options or visit our store to explore further?
             """
 
 human = (
@@ -312,6 +316,28 @@ def filter_database():
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df.to_json(orient='records')
+
+#get les choix de chaque type de filtre
+@app.route('/api/database/filters', methods=['GET'])
+def get_filters():
+    conn = sqlite3.connect('data.db')
+    df = pd.read_sql_query("SELECT model, name, vin, make, year, miles, exterior_color, interior_color, option, fuel_type FROM cars", conn)
+    conn.close()
+    return df.to_json(orient='records')
+
+@app.route('/api/database/filters/<filter_type>', methods=['GET'])
+def get_filter_values(filter_type):
+    valid_filters = ["model", "name", "make", "year", "miles", "exterior_color", "interior_color", "option", "fuel_type"]
+    
+    if filter_type not in valid_filters:
+        return jsonify({"error": "Invalid filter type"}), 400
+    
+    conn = sqlite3.connect('data.db')
+    query = f"SELECT DISTINCT {filter_type} FROM cars"
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    
+    return jsonify(df[filter_type].dropna().tolist())
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8000)
