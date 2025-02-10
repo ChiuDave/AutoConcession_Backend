@@ -12,6 +12,8 @@ from langchain_community.vectorstores import FAISS
 import sqlite3
 from inputSql import generate_sql_from_input
 import numpy as np
+from filters import get_filters, get_filter_values, get_database, filter_database
+from chat import reset_chat, chat_endpoint
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -170,7 +172,6 @@ conn.close()
 conversation_history = []
 
 def sanitize_metadata(metadata):
-    """Recursively sanitize metadata by replacing invalid JSON values."""
     if isinstance(metadata, list):
         return [sanitize_metadata(item) for item in metadata]
     elif isinstance(metadata, dict):
@@ -181,163 +182,14 @@ def sanitize_metadata(metadata):
         return None 
     return metadata
 
-@app.route('/api/chat', methods=['DELETE'])
-def reset_chat():
-    conversation_history.clear()
-    return jsonify({'status': 'success'})
+app.add_url_rule('/api/chat', 'reset_chat', reset_chat, methods=['DELETE'])
+app.add_url_rule('/api/chat', 'chat_endpoint', chat_endpoint, methods=['POST'])
 
-@app.route('/api/chat', methods=['POST'])
-def chat_endpoint():
-    data = request.get_json()
-    user_input = data.get('message', '').strip()
-    if not user_input:
-        return jsonify({'error': 'No message provided.'}), 400
+app.add_url_rule('/api/database', 'get_database', get_database, methods=['GET'])
+app.add_url_rule('/api/database/filter', 'filter_database', filter_database, methods=['GET'])
 
-    try:
-        is_follow_up = "follow-up" in user_input.lower() or (len(conversation_history) > 0 and not user_input.lower().startswith(('new', 'reset', 'start over')))
-        session_context = ""
-        enriched_user_input = user_input
-
-        if is_follow_up:
-            session_context = "\n".join(
-                f"User: {entry['query']}\nAssistant: {entry['response']}"
-                for entry in conversation_history[-6:]
-            )
-            enriched_user_input = f"{session_context}\nUser: {user_input}"
-
-        sql_query = generate_sql_from_input(enriched_user_input, sqlChat)
-
-        print("Query is: ", sql_query)
-    
-        try:
-            conn = sqlite3.connect('data.db')
-            filtered_df = pd.read_sql_query(sql_query.content, conn)
-            conn.close()
-
-            texts = filtered_df["description"].tolist()
-            metadata = filtered_df.drop(columns=["description"]).to_dict(orient="records")
-            vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadata)
-        except Exception as e:
-
-            texts = df["description"].tolist()
-            metadata = df.drop(columns=["description"]).to_dict(orient="records")
-
-            vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadata)
-
-
-        enriched_query = enriched_user_input if is_follow_up else user_input
-        search_results = vectorstore.similarity_search(enriched_query, k=3)
-
-        metadata_results = [sanitize_metadata(result.metadata) for result in search_results]
-
-        formatted_results = "\n".join(
-            f"{i+1}. {result.page_content}"
-            for i, result in enumerate(search_results)
-        )
-
-        response = chain.invoke({
-            "query": enriched_user_input,
-            "results": formatted_results
-        })
-
-        conversation_history.append({
-            "query": user_input,
-            "response": response.content
-        })
-
-        print(f"\nAssistant: {response.content}")
-
-        response_data = {
-            'response': response.content,
-            'metadata': metadata_results
-        }
-
-        return jsonify(response_data)
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-#route pour acces a la base de donnees
-@app.route('/api/database', methods=['GET'])
-def get_database():
-    conn = sqlite3.connect('data.db')
-    df = pd.read_sql_query("SELECT * FROM cars", conn)
-    conn.close()
-    return df.to_json(orient='records')
-
-@app.route('/api/database/filter', methods=['GET'])
-def filter_database():
-    model = request.args.get('model')
-    name = request.args.get('name')
-    vin = request.args.get('vin')
-    make = request.args.get('make')
-    year = request.args.get('year')
-    miles = request.args.get('miles')
-    exterior_color = request.args.get('exterior_color')
-    interior_color = request.args.get('interior_color')
-    option = request.args.get('option')
-    fuel_type = request.args.get('fuel_type')
-
-    query = "SELECT * FROM cars WHERE 1=1"
-    params = {}
-
-    if model:
-        query += " AND model = :model"
-        params['model'] = model
-    if name:
-        query += " AND name = :name"
-        params['name'] = name
-    if vin:
-        query += " AND vin = :vin"
-        params['vin'] = vin
-    if make:
-        query += " AND make = :make"
-        params['make'] = make
-    if year:
-        query += " AND year = :year"
-        params['year'] = year
-    if miles:
-        query += " AND miles = :miles"
-        params['miles'] = miles
-    if exterior_color:
-        query += " AND exterior_color = :exterior_color"
-        params['exterior_color'] = exterior_color
-    if interior_color:
-        query += " AND interior_color = :interior_color"
-        params['interior_color'] = interior_color
-    if option:
-        query += " AND option = :option"
-        params['option'] = option
-    if fuel_type:
-        query += " AND fuel_type = :fuel_type"
-        params['fuel_type'] = fuel_type
-
-    conn = sqlite3.connect('data.db')
-    df = pd.read_sql_query(query, conn, params=params)
-    conn.close()
-    return df.to_json(orient='records')
-
-#get les choix de chaque type de filtre
-@app.route('/api/database/filters', methods=['GET'])
-def get_filters():
-    conn = sqlite3.connect('data.db')
-    df = pd.read_sql_query("SELECT model, name, vin, make, year, miles, exterior_color, interior_color, option, fuel_type FROM cars", conn)
-    conn.close()
-    return df.to_json(orient='records')
-
-@app.route('/api/database/filters/<filter_type>', methods=['GET'])
-def get_filter_values(filter_type):
-    valid_filters = ["model", "name", "make", "year", "miles", "exterior_color", "interior_color", "option", "fuel_type"]
-    
-    if filter_type not in valid_filters:
-        return jsonify({"error": "Invalid filter type"}), 400
-    
-    conn = sqlite3.connect('data.db')
-    query = f"SELECT DISTINCT {filter_type} FROM cars"
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    
-    return jsonify(df[filter_type].dropna().tolist())
+app.add_url_rule('/api/database/filters', 'get_filters', get_filters, methods=['GET'])
+app.add_url_rule('/api/database/filters/<filter_type>', 'get_filter_values', get_filter_values, methods=['GET'])
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8000)
