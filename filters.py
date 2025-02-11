@@ -79,3 +79,10 @@ def filter_database():
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
     return df.to_json(orient='records')
+
+def get_car(vin):
+    conn = sqlite3.connect('data.db')
+    query = f"SELECT * FROM cars WHERE Vin = '{vin}'"
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df.to_json(orient='records')

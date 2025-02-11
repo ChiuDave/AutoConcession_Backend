@@ -12,7 +12,7 @@ from langchain_community.vectorstores import FAISS
 import sqlite3
 from inputSql import generate_sql_from_input
 import numpy as np
-from filters import get_filters, get_filter_values, get_database, filter_database
+from filters import get_filters, get_filter_values, get_database, filter_database, get_car
 from chat import reset_chat, chat_endpoint
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -35,6 +35,11 @@ app.add_url_rule('/api/database/filter', 'filter_database', filter_database, met
 
 app.add_url_rule('/api/database/filters', 'get_filters', get_filters, methods=['GET'])
 app.add_url_rule('/api/database/filters/<filter_type>', 'get_filter_values', get_filter_values, methods=['GET'])
+
+#filter on vin
+app.add_url_rule('/api/database/vin/<vin>', 'get_car', get_car, methods=['GET'])
+
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8000)
