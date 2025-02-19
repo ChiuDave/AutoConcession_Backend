@@ -3,7 +3,7 @@ from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
 csv_file = "vehicles.csv"
-df = pd.read_csv(csv_file)
+chunk_size = 1000  # Adjust the chunk size based on your memory constraints
 
 def create_detailed_description(row):
     fuel_efficiency = f"{row['CityMPG']} city / {row['HighwayMPG']} highway MPG"
@@ -48,16 +48,18 @@ def create_detailed_description(row):
     )
     return description
 
-df["description"] = df.apply(create_detailed_description, axis=1)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-MiniLM-L6-v2")
+vectorstore = None
 
-df.to_csv(csv_file, index=False)
+for chunk in pd.read_csv(csv_file, chunksize=chunk_size):
+    chunk["description"] = chunk.apply(create_detailed_description, axis=1)
+    texts = chunk["description"].tolist()
+    metadata = chunk.drop(columns=["description"]).to_dict(orient="records")
+    ids = chunk.index.astype(str).tolist()
 
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-
-texts = df["description"].tolist()
-metadata = df.drop(columns=["description"]).to_dict(orient="records")
-ids = df.index.astype(str).tolist()
-
-vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadata, ids=ids)
+    if vectorstore is None:
+        vectorstore = FAISS.from_texts(texts, embeddings, metadatas=metadata, ids=ids)
+    else:
+        vectorstore.add_texts(texts, metadatas=metadata, ids=ids)
 
 vectorstore.save_local("faiss_vehicle_index")
