@@ -1,6 +1,5 @@
 venv/
 .env
-faiss_vehicle_index
 __pycache__/
 data.db
 vehicles.csv
