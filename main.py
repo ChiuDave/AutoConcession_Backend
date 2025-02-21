@@ -22,10 +22,14 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-df = pd.read_csv('vehicles.csv')
-conn = sqlite3.connect('data.db')
-df.to_sql('cars', conn, index=False, if_exists='replace')
-conn.close()
+def initialize_database():
+    if not os.path.exists("data.db"):
+        df = pd.read_csv('vehicles.csv')
+        conn = sqlite3.connect('data.db')
+        df.to_sql('cars', conn, index=False, if_exists='replace')
+        conn.close()
+
+initialize_database()
 
 app.add_url_rule('/api/chat', 'reset_chat', reset_chat, methods=['DELETE'])
 app.add_url_rule('/api/chat', 'chat_endpoint', chat_endpoint, methods=['POST'])
@@ -42,4 +46,5 @@ app.add_url_rule('/api/database/vin/<vin>', 'get_car', get_car, methods=['GET'])
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8000)
+    PORT = int(os.environ.get('PORT', 8000))  # Render sets this
+    app.run(host='0.0.0.0', port=PORT)
