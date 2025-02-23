@@ -235,45 +235,22 @@ def chat_endpoint():
 
         print(f"\nAssistant: {response.content}")
 
-        car_details_links = []
         for result in metadata_results:
             vin = result.get("VIN")
             make = result.get("Make")
             image_link = result.get("Image_Link")
             model = result.get("Model")
 
-            if vin and make:
-                if image_link:
-                    car_details_links.append(
-                        f'<div>'
-                        f'  <p>'
-                        f'      View Details:'
-                        f'      <a href="/AutoConcession/details/{vin}" target="_blank" style="font-weight: bold; color: blue; text-decoration: none;">'
-                        f'          {make} {model}'
-                        f'          <img src="{image_link}" alt="{make} {model}" style="width:100%;height:auto;border-radius:8px;margin-right:10px;" />'
-                        f'      </a>'
-                        f'  </p>'
-                        f'</div>'
-                    )
-                else:
-                    car_details_links.append(
-                        f'<div>'
-                        f'  <p>'
-                        f'      View Details:'
-                        f'      <a href="/AutoConcession/details/{vin}" target="_blank" style="font-weight: bold; color: blue; text-decoration: none;">'
-                        f'          {make} {model}'
-                        f'      </a>'
-                        f'  </p>'
-                        f'</div>'
-                    )
-
-        response_with_link = response.content + "\n\n" + "\n".join(car_details_links)
+            # Append additional details to metadata
+            result["vin"] = vin
+            result["make"] = make
+            result["model"] = model
+            result["image_link"] = image_link  # This could be None if not available
 
         response_data = {
-            'response': response_with_link,
-            'metadata': metadata_results
+            'response': response.content,
+            'metadata': metadata_results  # Now includes VIN, make, model, and image link
         }
-
         return jsonify(response_data)
     except Exception as e:
         print(f"Error: {e}")
